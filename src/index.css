@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset básico */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Layout global */
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: theme("fontFamily.sans");
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.15), transparent 55%),
+    radial-gradient(circle at bottom, rgba(16, 185, 129, 0.25), transparent 55%),
+    linear-gradient(135deg, #020617 0%, #022c22 45%, #020617 100%);
+  color: #e5e7eb;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Componentes customizados */
+.glass-panel {
+  @apply bg-slate-950/80 backdrop-blur-xl border border-emerald-500/15 rounded-3xl shadow-2xl;
+}
+
+.page-padding {
+  @apply px-5 pt-5 pb-7 sm:px-8 md:px-10;
+}
+
+.page-grid {
+  @apply max-w-6xl mx-auto w-full;
+}
