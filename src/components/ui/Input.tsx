@@ -4,10 +4,11 @@ type InputProps = {
   label?: string;
   description?: string;
   icon?: ReactNode;
+  rightAction?: ReactNode;
   error?: string;
 } & InputHTMLAttributes<HTMLInputElement>;
 
-export function Input({ label, description, icon, error, className, ...props }: InputProps) {
+export function Input({ label, description, icon, rightAction, error, className, ...props }: InputProps) {
   return (
     <div className="space-y-1.5">
       {label && (
@@ -27,6 +28,7 @@ export function Input({ label, description, icon, error, className, ...props }: 
           className="flex-1 bg-transparent outline-none text-slate-50 placeholder:text-slate-500 text-sm"
           {...props}
         />
+        {rightAction && <span className="text-slate-400">{rightAction}</span>}
       </div>
       {description && !error && (
         <p className="text-[11px] text-slate-400 leading-snug">{description}</p>

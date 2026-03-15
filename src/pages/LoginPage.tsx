@@ -1,19 +1,58 @@
 import { useState } from "react";
-import { LogIn, IdCard, ShieldCheck, User } from "lucide-react";
+import { LogIn, IdCard, ShieldCheck, MessageCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { loginAssociated } from "../services/userService";
+import { supabase } from "../lib/supabase";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
+  const { login } = useAuth();
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const [rgm, setRgm] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleForgotPassword() {
+    const { data } = await supabase
+      .from("app_configuration")
+      .select("name, value")
+      .in("name", ["DEFINE_NEW_PASSWORD_NUMBER", "DEFINE_NEW_PASSWORD_MESSAGE"]);
+
+    const configs = Object.fromEntries((data ?? []).map((r) => [r.name, r.value]));
+    const number = configs["DEFINE_NEW_PASSWORD_NUMBER"]?.replace(/\D/g, "") ?? "";
+    const message = configs["DEFINE_NEW_PASSWORD_MESSAGE"] ?? "";
+
+    if (number) {
+      const url = message
+        ? `https://wa.me/${number}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/${number}`;
+      window.open(url, "_blank");
+    }
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    // Fluxo simulado – redireciona para o dashboard
-    navigate("/dashboard");
-  };
+    setError(null);
+    setLoading(true);
+    try {
+      const user = await loginAssociated(rgm.trim(), password);
+      login(user);
+      if (user.ask_for_new_password) {
+        navigate("/change-password", { replace: true });
+      } else {
+        navigate(user.role === "ADMIN" ? "/admin" : "/dashboard", { replace: true });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao realizar login.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-green-cracked px-5 py-8">
@@ -49,34 +88,47 @@ export function LoginPage() {
             label="RGM do universitário"
             placeholder="Seu RGM"
             icon={<IdCard className="h-4 w-4" />}
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
+            value={rgm}
+            onChange={(e) => setRgm(e.target.value)}
+            required
           />
 
           <Input
             label="Senha"
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Digite sua senha"
             icon={<ShieldCheck className="h-4 w-4" />}
+            rightAction={
+              <button type="button" onClick={() => setShowPassword((v) => !v)} tabIndex={-1}>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            }
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
+
+          {error && (
+            <p className="text-[12px] text-red-400">{error}</p>
+          )}
 
           <Button
             type="submit"
             fullWidth
             size="lg"
+            disabled={loading}
             leftIcon={<LogIn className="h-4 w-4" />}
             className="mt-1"
           >
-            Entrar
+            {loading ? "Entrando..." : "Entrar"}
           </Button>
 
           <button
             type="button"
+            onClick={handleForgotPassword}
             className="mt-1 inline-flex w-full items-center justify-center gap-2 text-[11px] text-emerald-100/80 hover:text-emerald-200"
           >
-            <User className="h-3.5 w-3.5" />
+            <MessageCircle className="h-3.5 w-3.5" />
             Esqueci minha senha
           </button>
         </form>
@@ -84,4 +136,3 @@ export function LoginPage() {
     </div>
   );
 }
-

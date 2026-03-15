@@ -37,13 +37,7 @@ export function PartnerCard({ name, benefit, description, category }: PartnerCar
           <p className="text-[11px] text-slate-400">
             Válido mediante apresentação da carteirinha digital.
           </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
-          >
-            Ver detalhes
-          </Button>
+
         </div>
       </div>
     </article>

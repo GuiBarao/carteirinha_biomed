@@ -1,12 +1,20 @@
+import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { PartnerCard } from "../components/cards/PartnerCard";
 import { Camera, CreditCard, Sparkles, Trophy } from "lucide-react";
 import { MainLayout } from "../layouts/MainLayout";
 import { useNavigate } from "react-router-dom";
+import type { PartnerType } from "../classes/Partner";
+import { fetchPartners } from "../services/partnerService";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const [partners, setPartners] = useState<PartnerType[]>([]);
+
+  useEffect(() => {
+    fetchPartners().then(setPartners).catch(() => {});
+  }, []);
   const user = {
     name: "Usuário Teste",
     course: "Biomedicina",
@@ -64,7 +72,7 @@ export function DashboardPage() {
           </Button>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-1 gap-4">
           <div className="glass-panel bg-slate-950/90 border-emerald-500/25 p-4 space-y-2">
             <div className="flex items-center gap-2">
               <Trophy className="h-4 w-4 text-emerald-300" />
@@ -84,22 +92,6 @@ export function DashboardPage() {
             </ul>
           </div>
 
-          <div className="glass-panel bg-slate-950/90 border-emerald-500/25 p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-300" />
-              <p className="text-xs font-semibold text-slate-200 uppercase tracking-[0.18em]">
-                Destaques de hoje
-              </p>
-            </div>
-            <p className="text-sm text-slate-100">
-              Confira as principais parcerias e oportunidades exclusivas para biomédicos da UNIGRAN.
-            </p>
-            <ul className="mt-1 text-[12px] text-slate-300 list-disc list-inside space-y-0.5">
-              <li>Desconto em laboratório de análises clínicas</li>
-              <li>Promoções em academias parceiras</li>
-              <li>Benefícios em bares e restaurantes da região</li>
-            </ul>
-          </div>
         </div>
       </section>
 
@@ -116,18 +108,17 @@ export function DashboardPage() {
         </div>
 
         <div className="space-y-3">
-          <PartnerCard
-            name="Laboratório Vida & Diagnóstico"
-            benefit="20% OFF em exames selecionados"
-            description="Laboratório especializado em análises clínicas, com foco em exames para acadêmicos de saúde. Atendimento rápido e resultados online."
-            category="Saúde"
-          />
-          <PartnerCard
-            name="Academia Corpo em Equilíbrio"
-            benefit="Isenção de matrícula + 10% OFF"
-            description="Academia completa com planos especiais para universitários, área funcional e acompanhamento profissional."
-            category="Esportes"
-          />
+          {partners.slice(0, 3).map((partner) => (
+            <PartnerCard
+              key={partner.id}
+              name={partner.name}
+              benefit={partner.benefit_description ?? "Benefício exclusivo para associados"}
+              description={partner.description ?? ""}
+            />
+          ))}
+          {partners.length === 0 && (
+            <p className="text-[13px] text-slate-400 py-2">Nenhuma parceria cadastrada ainda.</p>
+          )}
         </div>
       </section>
     </MainLayout>

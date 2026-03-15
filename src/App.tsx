@@ -4,41 +4,50 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { CarteirinhaPage } from "./pages/CarteirinhaPage";
 import { ParceriasPage } from "./pages/ParceriasPage";
 import { AdminPage } from "./pages/AdminPage";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
+import { useAuth } from "./context/AuthContext";
+import type { ReactNode } from "react";
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  return user ? <>{children}</> : <Navigate to="/login" replace />;
+}
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "ADMIN") return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
 
 function App() {
   return (
     <Routes>
-      <Route
-        path="/"
-        element={<Navigate to="/login" replace />}
-      />
-      <Route
-        path="/login"
-        element={<LoginPage />}
-      />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route
         path="/dashboard"
-        element={<DashboardPage />}
+        element={<ProtectedRoute><DashboardPage /></ProtectedRoute>}
       />
       <Route
         path="/carteirinha"
-        element={<CarteirinhaPage />}
+        element={<ProtectedRoute><CarteirinhaPage /></ProtectedRoute>}
       />
       <Route
         path="/parcerias"
-        element={<ParceriasPage />}
+        element={<ProtectedRoute><ParceriasPage /></ProtectedRoute>}
       />
       <Route
         path="/admin/*"
-        element={<AdminPage />}
+        element={<AdminRoute><AdminPage /></AdminRoute>}
       />
       <Route
-        path="*"
-        element={<Navigate to="/login" replace />}
+        path="/change-password"
+        element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>}
       />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
 
 export default App;
-
