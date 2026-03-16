@@ -6,14 +6,17 @@ type PartnerCardProps = {
   benefit: string;
   description: string;
   category?: string;
+  imageUrl?: string;
 };
 
-export function PartnerCard({ name, benefit, description, category }: PartnerCardProps) {
+export function PartnerCard({ name, benefit, description, category, imageUrl }: PartnerCardProps) {
   return (
     <article className="glass-panel bg-slate-950/90 border-emerald-500/25 p-4 flex gap-3 sm:gap-4">
-      <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center text-emerald-300 text-xs font-semibold uppercase tracking-wide">
-        LOGO
-      </div>
+      {imageUrl && (
+        <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center shrink-0 overflow-hidden">
+          <img src={imageUrl} alt={name} className="h-full w-full object-contain" />
+        </div>
+      )}
       <div className="flex-1 flex flex-col gap-3">
         <div>
           <div className="flex items-center justify-between gap-2">

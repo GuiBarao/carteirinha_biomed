@@ -2,21 +2,27 @@ import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { PartnerCard } from "../components/cards/PartnerCard";
-import { CreditCard, Sparkles, Trophy } from "lucide-react";
+import { CreditCard, Trophy, Search, X } from "lucide-react";
 import { MainLayout } from "../layouts/MainLayout";
 import { useNavigate } from "react-router-dom";
 import type { PartnerType } from "../classes/Partner";
-import { fetchPartners } from "../services/partnerService";
+import { fetchPartners, getPartnerImageUrl } from "../services/partnerService";
 import { useAuth } from "../context/AuthContext";
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [partners, setPartners] = useState<PartnerType[]>([]);
+  const [partnerSearch, setPartnerSearch] = useState("");
 
   useEffect(() => {
     fetchPartners().then(setPartners).catch(() => {});
   }, []);
+
+  const q = partnerSearch.trim().toLowerCase();
+  const visiblePartners = q
+    ? partners.filter((p) => p.name.toLowerCase().includes(q))
+    : partners.slice(0, 3);
 
   return (
     <MainLayout
@@ -86,28 +92,45 @@ export function DashboardPage() {
       </section>
 
       <section className="mt-5 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-emerald-200/80 font-semibold">
-              Parcerias em destaque
-            </p>
-            <p className="text-sm text-emerald-50/90">
-              Benefícios exclusivos para quem é Patológicos.
-            </p>
-          </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.22em] text-emerald-200/80 font-semibold">
+            Parcerias em destaque
+          </p>
+          <p className="text-sm text-emerald-50/90">
+            Benefícios exclusivos para quem é Patológicos.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-slate-950/70 px-3 py-2.5 focus-within:border-emerald-400/70 focus-within:ring-1 focus-within:ring-emerald-400/60">
+          <Search className="h-3.5 w-3.5 text-emerald-300/60 shrink-0" />
+          <input
+            type="text"
+            placeholder="Buscar parceria..."
+            value={partnerSearch}
+            onChange={(e) => setPartnerSearch(e.target.value)}
+            className="flex-1 bg-transparent outline-none text-slate-50 placeholder-slate-500 text-[13px]"
+          />
+          {partnerSearch && (
+            <button type="button" onClick={() => setPartnerSearch("")} className="text-slate-500 hover:text-slate-300 transition-colors">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="space-y-3">
-          {partners.slice(0, 3).map((partner) => (
+          {visiblePartners.map((partner) => (
             <PartnerCard
               key={partner.id}
               name={partner.name}
               benefit={partner.benefit_description ?? "Benefício exclusivo para associados"}
               description={partner.description ?? ""}
+              imageUrl={partner.has_image_stored ? getPartnerImageUrl(partner.id) : undefined}
             />
           ))}
-          {partners.length === 0 && (
-            <p className="text-[13px] text-slate-400 py-2">Nenhuma parceria cadastrada ainda.</p>
+          {visiblePartners.length === 0 && (
+            <p className="text-[13px] text-slate-400 py-2">
+              {q ? "Nenhuma parceria encontrada." : "Nenhuma parceria cadastrada ainda."}
+            </p>
           )}
         </div>
       </section>

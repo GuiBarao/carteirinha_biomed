@@ -15,13 +15,21 @@ import {
   Copy,
   ShieldCheck,
   RefreshCw,
+  Search,
+  EyeOff,
+  RotateCcw,
+  ImagePlus,
+  Image,
 } from "lucide-react";
 import type { PartnerType } from "../classes/Partner";
 import {
   fetchPartners,
   createPartner,
   updatePartner,
-  deletePartner,
+  softDeletePartner,
+  reactivatePartner,
+  uploadPartnerImage,
+  getPartnerImageUrl,
 } from "../services/partnerService";
 import type { Associated, AssociatedRole } from "../services/userService";
 import {
@@ -29,6 +37,7 @@ import {
   createAssociated,
   updateAssociated,
   softDeleteAssociated,
+  reactivateAssociated,
   resetAssociatedPassword,
 } from "../services/userService";
 
@@ -86,6 +95,10 @@ export function AdminPage() {
   const [editingPartnerId, setEditingPartnerId] = useState<number | null>(null);
   const [savingPartner, setSavingPartner] = useState(false);
   const [deletingPartnerId, setDeletingPartnerId] = useState<number | null>(null);
+  const [reactivatingPartnerId, setReactivatingPartnerId] = useState<number | null>(null);
+  const [showInactivePartners, setShowInactivePartners] = useState(false);
+  const [partnerImageFile, setPartnerImageFile] = useState<File | null>(null);
+  const [partnerImagePreview, setPartnerImagePreview] = useState<string | null>(null);
 
   // Users state
   const [users, setUsers] = useState<Associated[]>([]);
@@ -96,15 +109,19 @@ export function AdminPage() {
   const [savingUser, setSavingUser] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [reactivatingUserId, setReactivatingUserId] = useState<string | null>(null);
   const [createdPassword, setCreatedPassword] = useState<{ name: string; password: string } | null>(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
+  const [partnerSearch, setPartnerSearch] = useState("");
 
   useEffect(() => {
-    fetchPartners()
+    fetchPartners(true)
       .then(setPartners)
       .catch(() => setPartnerError("Não foi possível carregar as parcerias."))
       .finally(() => setLoadingPartners(false));
 
-    fetchAssociated()
+    fetchAssociated(true)
       .then(setUsers)
       .catch(() => setUserError("Não foi possível carregar os associados."))
       .finally(() => setLoadingUsers(false));
@@ -123,11 +140,24 @@ export function AdminPage() {
       description: p.description ?? "",
       benefit_description: p.benefit_description ?? "",
     });
+    setPartnerImageFile(null);
+    setPartnerImagePreview(p.has_image_stored ? getPartnerImageUrl(p.id) : null);
   }
 
   function cancelEditPartner() {
     setEditingPartnerId(null);
     setPartnerForm(emptyPartnerForm);
+    setPartnerImageFile(null);
+    setPartnerImagePreview(null);
+  }
+
+  function handlePartnerImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setPartnerImageFile(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPartnerImagePreview(url);
+    }
   }
 
   async function handlePartnerSubmit(e: React.FormEvent) {
@@ -142,14 +172,24 @@ export function AdminPage() {
     };
     try {
       if (editingPartnerId !== null) {
-        const updated = await updatePartner({ id: editingPartnerId, ...payload });
+        let updated = await updatePartner({ id: editingPartnerId, ...payload });
+        if (partnerImageFile) {
+          await uploadPartnerImage(editingPartnerId, partnerImageFile);
+          updated = { ...updated, has_image_stored: true };
+        }
         setPartners((prev) => prev.map((p) => (p.id === editingPartnerId ? updated : p)));
         setEditingPartnerId(null);
       } else {
-        const created = await createPartner(payload);
+        let created = await createPartner(payload);
+        if (partnerImageFile) {
+          await uploadPartnerImage(created.id, partnerImageFile);
+          created = { ...created, has_image_stored: true };
+        }
         setPartners((prev) => [created, ...prev]);
       }
       setPartnerForm(emptyPartnerForm);
+      setPartnerImageFile(null);
+      setPartnerImagePreview(null);
     } catch {
       setPartnerError("Erro ao salvar parceria. Tente novamente.");
     } finally {
@@ -161,13 +201,30 @@ export function AdminPage() {
     setDeletingPartnerId(id);
     setPartnerError(null);
     try {
-      await deletePartner(id);
-      setPartners((prev) => prev.filter((p) => p.id !== id));
+      await softDeletePartner(id);
+      setPartners((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, deleted_at: new Date().toISOString() } : p))
+      );
       if (editingPartnerId === id) cancelEditPartner();
     } catch {
-      setPartnerError("Erro ao excluir parceria.");
+      setPartnerError("Erro ao desativar parceria.");
     } finally {
       setDeletingPartnerId(null);
+    }
+  }
+
+  async function handlePartnerReactivate(id: number) {
+    setReactivatingPartnerId(id);
+    setPartnerError(null);
+    try {
+      await reactivatePartner(id);
+      setPartners((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, deleted_at: null } : p))
+      );
+    } catch {
+      setPartnerError("Erro ao reativar parceria.");
+    } finally {
+      setReactivatingPartnerId(null);
     }
   }
 
@@ -241,7 +298,9 @@ export function AdminPage() {
     setUserError(null);
     try {
       await softDeleteAssociated(id);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, deleted_at: new Date().toISOString() } : u))
+      );
       if (editingUserId === id) cancelEditUser();
     } catch {
       setUserError("Erro ao remover associado.");
@@ -249,6 +308,38 @@ export function AdminPage() {
       setDeletingUserId(null);
     }
   }
+
+  async function handleUserReactivate(id: string) {
+    setReactivatingUserId(id);
+    setUserError(null);
+    try {
+      await reactivateAssociated(id);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, deleted_at: null } : u))
+      );
+    } catch {
+      setUserError("Erro ao reativar associado.");
+    } finally {
+      setReactivatingUserId(null);
+    }
+  }
+
+  // ── Derived: filtered users ─────────────────────────────────────────────────
+
+  const visibleUsers = users
+    .filter((u) => showInactive || u.deleted_at === null)
+    .filter((u) => {
+      const q = userSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        u.complete_name.toLowerCase().includes(q) ||
+        u.rgm.toLowerCase().includes(q)
+      );
+    });
+
+  const visiblePartnerList = partners
+    .filter((p) => showInactivePartners || p.deleted_at === null)
+    .filter((p) => p.name.toLowerCase().includes(partnerSearch.trim().toLowerCase()));
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -305,7 +396,7 @@ export function AdminPage() {
               />
               <Input
                 label="RGM"
-                placeholder="2026xxxxx"
+                placeholder="RGM do associado"
                 icon={<IdCard className="h-4 w-4" />}
                 value={userForm.rgm}
                 onChange={(e) => setUserField("rgm", e.target.value)}
@@ -427,6 +518,52 @@ export function AdminPage() {
                 onChange={(e) => setPartnerField("description", e.target.value)}
               />
 
+              {/* Upload de logo */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-slate-200 tracking-wide">
+                  Logo da empresa <span className="text-slate-500">(opcional)</span>
+                </label>
+                <label className="flex items-center gap-3 rounded-2xl border border-dashed border-emerald-500/30 bg-slate-950/70 px-3.5 py-3 cursor-pointer hover:border-emerald-400/60 transition-colors group">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/svg+xml"
+                    className="sr-only"
+                    onChange={handlePartnerImageChange}
+                  />
+                  {partnerImagePreview ? (
+                    <img
+                      src={partnerImagePreview}
+                      alt="Preview"
+                      className="h-10 w-10 rounded-lg object-contain bg-slate-900 border border-slate-700 shrink-0"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg bg-slate-900/80 border border-slate-700 flex items-center justify-center shrink-0">
+                      <Image className="h-5 w-5 text-slate-500" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[13px] text-slate-300 group-hover:text-slate-100 transition-colors truncate">
+                      {partnerImageFile
+                        ? partnerImageFile.name
+                        : partnerImagePreview
+                        ? "Clique para alterar a imagem"
+                        : "Clique para selecionar"}
+                    </p>
+                    <p className="text-[11px] text-slate-500">JPG, PNG ou SVG</p>
+                  </div>
+                  <ImagePlus className="h-4 w-4 text-emerald-400/60 group-hover:text-emerald-400 transition-colors ml-auto shrink-0" />
+                </label>
+                {partnerImageFile && (
+                  <button
+                    type="button"
+                    onClick={() => { setPartnerImageFile(null); setPartnerImagePreview(editingPartnerId ? getPartnerImageUrl(editingPartnerId) : null); }}
+                    className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+                  >
+                    <X className="h-3 w-3" /> Remover seleção
+                  </button>
+                )}
+              </div>
+
               {partnerError && (
                 <p className="text-[11px] text-red-400">{partnerError}</p>
               )}
@@ -458,143 +595,288 @@ export function AdminPage() {
         <section className="grid lg:grid-cols-2 gap-5">
           {/* Lista: Associados */}
           <div className="glass-panel bg-slate-950/95 border-emerald-500/25 p-4 space-y-3">
+            {/* Cabeçalho */}
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold text-emerald-200 uppercase tracking-[0.22em]">
                 Associados cadastrados
               </p>
               {!loadingUsers && (
                 <span className="text-[11px] text-slate-400">
-                  {users.length} {users.length === 1 ? "associado" : "associados"}
+                  {visibleUsers.length} de {users.filter((u) => u.deleted_at === null).length} ativo
+                  {users.filter((u) => u.deleted_at === null).length !== 1 ? "s" : ""}
                 </span>
               )}
+            </div>
+
+            {/* Busca + filtro */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-slate-950/70 px-3 py-2 text-sm focus-within:border-emerald-400/70 focus-within:ring-1 focus-within:ring-emerald-400/60">
+                <Search className="h-3.5 w-3.5 text-emerald-300/60 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nome ou RGM..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-slate-50 placeholder-slate-500 text-[13px]"
+                />
+                {userSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setUserSearch("")}
+                    className="text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowInactive((v) => !v)}
+                className={[
+                  "flex items-center gap-2 rounded-xl px-3 py-1.5 text-[12px] font-medium transition-colors w-full",
+                  showInactive
+                    ? "bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                    : "bg-slate-900/50 border border-slate-700/40 text-slate-400 hover:text-slate-300",
+                ].join(" ")}
+              >
+                <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                {showInactive ? "Ocultando inativos" : "Mostrar inativos"}
+                {showInactive && users.filter((u) => u.deleted_at !== null).length > 0 && (
+                  <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-300">
+                    {users.filter((u) => u.deleted_at !== null).length} inativo
+                    {users.filter((u) => u.deleted_at !== null).length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </button>
             </div>
 
             {loadingUsers && (
               <p className="text-[13px] text-slate-400 py-2">Carregando...</p>
             )}
 
-            {!loadingUsers && users.length === 0 && (
-              <p className="text-[13px] text-slate-400 py-2">Nenhum associado cadastrado.</p>
+            {!loadingUsers && visibleUsers.length === 0 && (
+              <p className="text-[13px] text-slate-400 py-2">
+                {userSearch ? "Nenhum associado encontrado." : "Nenhum associado cadastrado."}
+              </p>
             )}
 
             <div className="space-y-2">
-              {users.map((u) => (
-                <div
-                  key={u.id}
-                  className={[
-                    "flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-[13px] transition-colors",
-                    editingUserId === u.id
-                      ? "bg-emerald-500/10 border border-emerald-500/30"
-                      : "bg-slate-900/50",
-                  ].join(" ")}
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-slate-100 truncate">{u.complete_name}</p>
-                    <p className="text-[11px] text-slate-400 truncate">
-                      RGM {u.rgm} •{" "}
-                      <span
-                        className={
-                          u.role === "ADMIN" ? "text-emerald-400" : "text-slate-400"
-                        }
+              {visibleUsers.map((u) => {
+                const isInactive = u.deleted_at !== null;
+                return (
+                  <div
+                    key={u.id}
+                    className={[
+                      "flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-[13px] transition-colors",
+                      isInactive
+                        ? "bg-slate-900/30 border border-slate-700/30 opacity-60"
+                        : editingUserId === u.id
+                        ? "bg-emerald-500/10 border border-emerald-500/30"
+                        : "bg-slate-900/50",
+                    ].join(" ")}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={["font-medium truncate", isInactive ? "line-through text-slate-400" : "text-slate-100"].join(" ")}>
+                          {u.complete_name}
+                        </p>
+                        {isInactive && (
+                          <Badge tone="danger">Inativo</Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        RGM {u.rgm} •{" "}
+                        <span className={u.role === "ADMIN" ? "text-emerald-400" : "text-slate-400"}>
+                          {u.role === "ADMIN" ? "Admin" : "Comum"}
+                        </span>
+                      </p>
+                    </div>
+                    {isInactive && (
+                      <button
+                        type="button"
+                        onClick={() => handleUserReactivate(u.id)}
+                        disabled={reactivatingUserId === u.id}
+                        className="p-1.5 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-40"
+                        title="Reativar associado"
                       >
-                        {u.role === "ADMIN" ? "Admin" : "Comum"}
-                      </span>
-                    </p>
+                        <RotateCcw className={["h-3.5 w-3.5", reactivatingUserId === u.id ? "animate-spin" : ""].join(" ")} />
+                      </button>
+                    )}
+                    {!isInactive && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => startEditUser(u)}
+                          className="p-1.5 text-slate-400 hover:text-emerald-300 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleResetPassword(u.id, u.complete_name)}
+                          disabled={resettingUserId === u.id}
+                          className="p-1.5 text-slate-400 hover:text-amber-400 transition-colors disabled:opacity-40"
+                          title="Gerar nova senha temporária"
+                        >
+                          <RefreshCw className={["h-3.5 w-3.5", resettingUserId === u.id ? "animate-spin" : ""].join(" ")} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUserDelete(u.id)}
+                          disabled={deletingUserId === u.id}
+                          className="p-1.5 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-40"
+                          title="Remover"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => startEditUser(u)}
-                      className="p-1.5 text-slate-400 hover:text-emerald-300 transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResetPassword(u.id, u.complete_name)}
-                      disabled={resettingUserId === u.id}
-                      className="p-1.5 text-slate-400 hover:text-amber-400 transition-colors disabled:opacity-40"
-                      title="Gerar nova senha temporária"
-                    >
-                      <RefreshCw className={["h-3.5 w-3.5", resettingUserId === u.id ? "animate-spin" : ""].join(" ")} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUserDelete(u.id)}
-                      disabled={deletingUserId === u.id}
-                      className="p-1.5 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-40"
-                      title="Remover"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Lista: Parcerias */}
-          <div className="glass-panel bg-slate-950/95 border-emerald-500/25 p-4 space-y-3">
+          <div className="h-auto w-auto glass-panel bg-slate-950/95 border-emerald-500/25 p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold text-emerald-200 uppercase tracking-[0.22em]">
                 Parcerias cadastradas
               </p>
               {!loadingPartners && (
                 <span className="text-[11px] text-slate-400">
-                  {partners.length} {partners.length === 1 ? "parceria" : "parcerias"}
+                  {visiblePartnerList.length} {visiblePartnerList.length === 1 ? "parceria" : "parcerias"}
                 </span>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-slate-950/70 px-3 py-2 focus-within:border-emerald-400/70 focus-within:ring-1 focus-within:ring-emerald-400/60">
+                <Search className="h-3.5 w-3.5 text-emerald-300/60 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nome..."
+                  value={partnerSearch}
+                  onChange={(e) => setPartnerSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-slate-50 placeholder-slate-500 text-[13px]"
+                />
+                {partnerSearch && (
+                  <button type="button" onClick={() => setPartnerSearch("")} className="text-slate-500 hover:text-slate-300 transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowInactivePartners((v) => !v)}
+                className={[
+                  "flex items-center gap-2 rounded-xl px-3 py-1.5 text-[12px] font-medium transition-colors w-full",
+                  showInactivePartners
+                    ? "bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                    : "bg-slate-900/50 border border-slate-700/40 text-slate-400 hover:text-slate-300",
+                ].join(" ")}
+              >
+                <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                {showInactivePartners ? "Ocultando inativos" : "Mostrar inativos"}
+                {showInactivePartners && partners.filter((p) => p.deleted_at !== null).length > 0 && (
+                  <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-300">
+                    {partners.filter((p) => p.deleted_at !== null).length} inativo
+                    {partners.filter((p) => p.deleted_at !== null).length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </button>
             </div>
 
             {loadingPartners && (
               <p className="text-[13px] text-slate-400 py-2">Carregando...</p>
             )}
 
-            {!loadingPartners && partners.length === 0 && (
-              <p className="text-[13px] text-slate-400 py-2">Nenhuma parceria cadastrada.</p>
+            {!loadingPartners && visiblePartnerList.length === 0 && (
+              <p className="text-[13px] text-slate-400 py-2">
+                {partnerSearch ? "Nenhuma parceria encontrada." : "Nenhuma parceria cadastrada."}
+              </p>
             )}
 
             <div className="space-y-2">
-              {partners.map((partner) => (
-                <div
-                  key={partner.id}
-                  className={[
-                    "flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-[13px] transition-colors",
-                    editingPartnerId === partner.id
-                      ? "bg-emerald-500/10 border border-emerald-500/30"
-                      : "bg-slate-900/50",
-                  ].join(" ")}
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-slate-100 truncate">{partner.name}</p>
-                    {partner.benefit_description && (
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {partner.benefit_description}
-                      </p>
-                    )}
+              {visiblePartnerList.map((partner) => {
+                const isInactive = partner.deleted_at !== null;
+                return (
+                  <div
+                    key={partner.id}
+                    className={[
+                      "flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-[13px] transition-colors",
+                      isInactive
+                        ? "bg-slate-900/30 border border-slate-700/30 opacity-60"
+                        : editingPartnerId === partner.id
+                        ? "bg-emerald-500/10 border border-emerald-500/30"
+                        : "bg-slate-900/50",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {partner.has_image_stored ? (
+                        <img
+                          src={getPartnerImageUrl(partner.id)}
+                          alt={partner.name}
+                          className="h-8 w-8 rounded-lg object-contain bg-slate-900 border border-slate-700 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-lg bg-slate-900 border border-slate-700/50 flex items-center justify-center shrink-0">
+                          <Image className="h-3.5 w-3.5 text-slate-600" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={["font-medium truncate", isInactive ? "line-through text-slate-400" : "text-slate-100"].join(" ")}>
+                            {partner.name}
+                          </p>
+                          {isInactive && <Badge tone="danger">Inativo</Badge>}
+                        </div>
+                        {partner.benefit_description && (
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {partner.benefit_description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isInactive ? (
+                        <button
+                          type="button"
+                          onClick={() => handlePartnerReactivate(partner.id)}
+                          disabled={reactivatingPartnerId === partner.id}
+                          className="p-1.5 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-40"
+                          title="Reativar parceria"
+                        >
+                          <RotateCcw className={["h-3.5 w-3.5", reactivatingPartnerId === partner.id ? "animate-spin" : ""].join(" ")} />
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => startEditPartner(partner)}
+                            className="p-1.5 text-slate-400 hover:text-emerald-300 transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePartnerDelete(partner.id)}
+                            disabled={deletingPartnerId === partner.id}
+                            className="p-1.5 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-40"
+                            title="Desativar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => startEditPartner(partner)}
-                      className="p-1.5 text-slate-400 hover:text-emerald-300 transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePartnerDelete(partner.id)}
-                      disabled={deletingPartnerId === partner.id}
-                      className="p-1.5 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-40"
-                      title="Excluir"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
