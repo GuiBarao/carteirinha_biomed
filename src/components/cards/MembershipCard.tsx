@@ -22,7 +22,7 @@ export function MembershipCard({ name, rgm, atlheticName, status }: MembershipCa
           <div className="flex items-center gap-3">
             <div className="h-11 w-11 rounded-2xl bg-slate-900/70 border border-emerald-400/60 flex items-center justify-center overflow-hidden">
               <img
-                src="/imagens/logo-biomed.png"
+                src="public/imagens/pato-biomed.png"
                 alt="Atlética Patológicos"
                 className="h-9 w-9 object-contain drop-shadow-[0_0_14px_rgba(16,185,129,0.9)]"
               />

@@ -20,24 +20,7 @@ export function generateTempPassword(): string {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-/**
- * Requer RPC no Supabase (atualizar para incluir ask_for_new_password):
- *
- * CREATE OR REPLACE FUNCTION login_associated(p_rgm text, p_password text)
- * RETURNS TABLE(id uuid, rgm text, complete_name text, role text,
- *               ask_for_new_password bool, deleted_at timestamptz, updated_at timestamptz)
- * LANGUAGE plpgsql SECURITY DEFINER AS $$
- * BEGIN
- *   RETURN QUERY
- *   SELECT a.id, a.rgm, a.complete_name, a.role::text,
- *          a.ask_for_new_password, a.deleted_at, a.updated_at
- *   FROM associated a
- *   WHERE a.rgm = p_rgm
- *     AND a.password_hash = crypt(p_password, a.password_hash)
- *     AND a.deleted_at IS NULL;
- * END;
- * $$;
- */
+
 export async function loginAssociated(rgm: string, password: string): Promise<Associated> {
   const { data, error } = await supabase.rpc("login_associated", {
     p_rgm: rgm,

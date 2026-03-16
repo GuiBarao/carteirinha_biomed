@@ -42,10 +42,12 @@ export function LoginPage() {
     try {
       const user = await loginAssociated(rgm.trim(), password);
       login(user);
+      console.log("AAAAAAAAAAAAAAAAAA")
+      console.log(user)
       if (user.ask_for_new_password) {
         navigate("/change-password", { replace: true });
       } else {
-        navigate(user.role === "ADMIN" ? "/admin" : "/dashboard", { replace: true });
+        navigate("/dashboard", { replace: true });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao realizar login.");
@@ -61,7 +63,7 @@ export function LoginPage() {
           <div className="relative">
             <div className="h-20 w-20 rounded-3xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center overflow-hidden shadow-soft-card">
               <img
-                src="/imagens/logo-biomed.png"
+                src="public/imagens/pato-biomed.png"
                 alt="Atlética Patológicos"
                 className="h-14 w-14 object-contain drop-shadow-[0_0_18px_rgba(16,185,129,0.95)]"
               />

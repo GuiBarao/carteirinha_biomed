@@ -16,7 +16,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center overflow-hidden">
               <img
-                src="/imagens/logo-biomed.png"
+                src="public/imagens/pato-biomed.png"
                 alt="Atlética Patológicos"
                 className="h-8 w-8 object-contain"
               />

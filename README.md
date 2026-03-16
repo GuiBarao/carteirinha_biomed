@@ -25,7 +25,7 @@ Frontend moderno para gestão de associados, carteirinha digital e parcerias da 
 
 Coloque o arquivo do mascote em:
 
-- `public/imagens/logo-biomed.png`
+- `publicdist/imagens/pato-biomed.png`
 
 O sistema já referencia esse caminho em todas as telas.
 

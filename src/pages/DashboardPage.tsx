@@ -2,45 +2,35 @@ import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { PartnerCard } from "../components/cards/PartnerCard";
-import { Camera, CreditCard, Sparkles, Trophy } from "lucide-react";
+import { CreditCard, Sparkles, Trophy } from "lucide-react";
 import { MainLayout } from "../layouts/MainLayout";
 import { useNavigate } from "react-router-dom";
 import type { PartnerType } from "../classes/Partner";
 import { fetchPartners } from "../services/partnerService";
+import { useAuth } from "../context/AuthContext";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [partners, setPartners] = useState<PartnerType[]>([]);
 
   useEffect(() => {
     fetchPartners().then(setPartners).catch(() => {});
   }, []);
-  const user = {
-    name: "Usuário Teste",
-    course: "Biomedicina",
-    status: "ativo" as const
-  };
 
   return (
     <MainLayout
       title="Bem-vindo(a), Patológico(a)!"
       subtitle="Acompanhe sua carteirinha, parcerias e status como associado."
     >
-      <section className="glass-panel bg-slate-950/90 border-emerald-500/25 p-4 flex items-center gap-3">
-        <div className="relative">
-          <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center overflow-hidden">
-            <Camera className="h-5 w-5 text-emerald-300" />
-          </div>
-        </div>
+      <section className="glass-panel bg-slate-950/90 border-emerald-500/25 p-4">
         <div className="flex-1 min-w-0">
           <p className="text-xs text-slate-300/90">Associado</p>
           <p className="text-sm sm:text-base font-semibold text-slate-50 truncate">
-            {user.name} – {user.course}
+            {user?.complete_name}
           </p>
           <div className="mt-1 flex items-center gap-2">
-            <Badge tone={user.status === "ativo" ? "success" : "danger"}>
-              {user.status === "ativo" ? "Associado ativo" : "Associado inativo"}
-            </Badge>
+            <Badge tone="success">Associado ativo</Badge>
             <span className="hidden sm:inline text-[11px] text-emerald-100/80">
               Mostre sua carteirinha para garantir os benefícios.
             </span>
