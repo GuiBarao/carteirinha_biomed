@@ -63,7 +63,7 @@ export function LoginPage() {
           <div className="relative">
             <div className="h-20 w-20 rounded-3xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center overflow-hidden shadow-soft-card">
               <img
-                src="public/imagens/pato-biomed.png"
+                src="/imagens/pato-biomed.png"
                 alt="Atlética Patológicos"
                 className="h-14 w-14 object-contain drop-shadow-[0_0_18px_rgba(16,185,129,0.95)]"
               />
