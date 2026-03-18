@@ -30,6 +30,7 @@ import {
   reactivatePartner,
   uploadPartnerImage,
   getPartnerImageUrl,
+  deletePartnerImage,
 } from "../services/partnerService";
 import type { Associated, AssociatedRole } from "../services/userService";
 import {
@@ -99,6 +100,7 @@ export function AdminPage() {
   const [showInactivePartners, setShowInactivePartners] = useState(false);
   const [partnerImageFile, setPartnerImageFile] = useState<File | null>(null);
   const [partnerImagePreview, setPartnerImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   // Users state
   const [users, setUsers] = useState<Associated[]>([]);
@@ -142,6 +144,7 @@ export function AdminPage() {
     });
     setPartnerImageFile(null);
     setPartnerImagePreview(p.has_image_stored ? getPartnerImageUrl(p.id) : null);
+    setRemoveImage(false);
   }
 
   function cancelEditPartner() {
@@ -149,6 +152,7 @@ export function AdminPage() {
     setPartnerForm(emptyPartnerForm);
     setPartnerImageFile(null);
     setPartnerImagePreview(null);
+    setRemoveImage(false);
   }
 
   function handlePartnerImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -173,7 +177,10 @@ export function AdminPage() {
     try {
       if (editingPartnerId !== null) {
         let updated = await updatePartner({ id: editingPartnerId, ...payload });
-        if (partnerImageFile) {
+        if (removeImage) {
+          await deletePartnerImage(editingPartnerId);
+          updated = { ...updated, has_image_stored: false };
+        } else if (partnerImageFile) {
           await uploadPartnerImage(editingPartnerId, partnerImageFile);
           updated = { ...updated, has_image_stored: true };
         }
@@ -190,6 +197,7 @@ export function AdminPage() {
       setPartnerForm(emptyPartnerForm);
       setPartnerImageFile(null);
       setPartnerImagePreview(null);
+      setRemoveImage(false);
     } catch {
       setPartnerError("Erro ao salvar parceria. Tente novamente.");
     } finally {
@@ -543,7 +551,9 @@ export function AdminPage() {
                   )}
                   <div className="min-w-0">
                     <p className="text-[13px] text-slate-300 group-hover:text-slate-100 transition-colors truncate">
-                      {partnerImageFile
+                      {removeImage
+                        ? "Foto será removida ao salvar"
+                        : partnerImageFile
                         ? partnerImageFile.name
                         : partnerImagePreview
                         ? "Clique para alterar a imagem"
@@ -560,6 +570,24 @@ export function AdminPage() {
                     className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
                   >
                     <X className="h-3 w-3" /> Remover seleção
+                  </button>
+                )}
+                {!partnerImageFile && partnerImagePreview && !removeImage && (
+                  <button
+                    type="button"
+                    onClick={() => { setRemoveImage(true); setPartnerImagePreview(null); }}
+                    className="text-[11px] text-red-400/70 hover:text-red-400 transition-colors flex items-center gap-1"
+                  >
+                    <X className="h-3 w-3" /> Remover foto
+                  </button>
+                )}
+                {removeImage && (
+                  <button
+                    type="button"
+                    onClick={() => { setRemoveImage(false); setPartnerImagePreview(editingPartnerId ? getPartnerImageUrl(editingPartnerId) : null); }}
+                    className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+                  >
+                    <X className="h-3 w-3" /> Cancelar remoção
                   </button>
                 )}
               </div>

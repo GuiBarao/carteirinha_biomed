@@ -64,6 +64,21 @@ export function getPartnerImageUrl(id: number): string {
   return data.publicUrl;
 }
 
+export async function deletePartnerImage(id: number): Promise<void> {
+  const { error: removeError } = await supabase.storage
+    .from(BUCKET)
+    .remove([String(id)]);
+
+  if (removeError) throw removeError;
+
+  const { error: updateError } = await supabase
+    .from("partners")
+    .update({ has_image_stored: false })
+    .eq("id", id);
+
+  if (updateError) throw updateError;
+}
+
 export async function softDeletePartner(id: number): Promise<void> {
   const { error } = await supabase
     .from("partners")

@@ -13,7 +13,7 @@ export function PartnerCard({ name, benefit, description, category, imageUrl }: 
   return (
     <article className="glass-panel bg-slate-950/90 border-emerald-500/25 p-4 flex gap-3 sm:gap-4">
       {imageUrl && (
-        <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center shrink-0 overflow-hidden">
           <img src={imageUrl} alt={name} className="h-full w-full object-contain" />
         </div>
       )}
